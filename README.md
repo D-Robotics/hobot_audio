@@ -1,8 +1,14 @@
 English| [简体中文](./README_cn.md)
 
-# Function Introduction
+# Introduction
 
-D-Robotics Intelligent Voice Algorithm adopts local offline mode, subscribes to audio data for processing by BPU, and then publishes messages such as **wake-up, command word recognition**, **sound source localization DOA angle information**, and **voice ASR recognition results**. The implementation of intelligent voice function corresponds to the **hobot_audio** package of TogetheROS.Bot, which is suitable for the microphone array matched with the D-Robotics RDK.
+D-Robotics Intelligent Voice Algorithm adopts local offline mode, subscribes to audio data for processing by BPU, and then publishes messages such as **command word wake-up**, **Direction Of Arrival（DOA）**, and **Automatic Speech Recognition（ASR）**. The implementation of intelligent voice function corresponds to the **hobot_audio** package of TogetheROS.Bot, which is suitable for the microphone array matched with the D-Robotics RDK.
+
+After the intelligent voice hobot_audio package starts running, it will collect audio from the microphone array and send the collected audio data to the smart speech algorithm SDK module for intelligent processing. It outputs intelligent information such as wake-up events, command words, ASR results, etc. Wake-up events and command words are published as messages of type `audio_msg::msg::SmartAudioData`, and ASR results are published as messages of type `std_msgs::msg::String`.
+
+The specific process is as shown in the following figure:
+
+![hobot_audio](./imgs/hobot_audio.jpg)
 
 Application Scenarios: The intelligent voice algorithm can recognize wake-up words and custom command words in audio, interpret the voice content into corresponding instructions or convert it into text, enabling functions such as voice control and voice translation. It is mainly used in smart home, smart cabin, smart wearable devices, and other fields.
 
@@ -20,7 +26,7 @@ Application Scenarios: The intelligent voice algorithm can recognize wake-up wor
 
 Before experiencing, you need to meet the following basic requirements:
 
-- D-Robotics RDK has burned the Ubuntu 20.04 system image provided by D-Robotics.
+- D-Robotics RDK has installed the Ubuntu 20.04 system image provided by D-Robotics.
 - The audio board is correctly connected to RDK X3.
 
 Connection Steps:
@@ -36,7 +42,7 @@ Connection Steps:
 
 2. Configure the microphone array, refer to RDK User Manual [Audio Adapter](https://developer.D-Robotics.cc/documents_rdk/hardware_development/rdk_x3/audio_board) section.
 
-## Installation of Function Package
+## Installation
 
 After starting RDK X3, connect to the robot via terminal SSH or VNC, copy and run the following commands on the RDK system to install related Nodes.
 
@@ -52,19 +58,19 @@ sudo apt update
 sudo apt install -y tros-humble-hobot-audio
 ```
 
-## Running Intelligent Voice Program
+## Execution
 
 The intelligent voice function supports ASR recognition after denoising the original audio. The default wake-up word and command word are defined in the directory of the intelligent voice function module as *config/hrsc/cmd_word.json*, which are as follows by default:
 
 ```json
 {
     "cmd_word": [
-        "D-Robotics hello",
-        "Move forward",
-        "Move backward",
-        "Turn left",
-        "Turn right",
-        "Stop movement"
+        "地平线你好",
+        "向前走",
+        "向后退",
+        "向左转",
+        "向右转",
+        "停止运动"
     ]
 }
 ```
@@ -128,7 +134,7 @@ To run the hobot_audio package on the D-Robotics RDK board:
     # Start the launch file
     ros2 launch hobot_audio hobot_audio.launch.py
     ```
-4. Result Analysis
+4. Result
 
     The output information of the D-Robotics RDK board end terminal is as follows:
 
@@ -189,7 +195,7 @@ To run the hobot_audio package on the D-Robotics RDK board:
 
 | Name         | Message Type                                                                                                            | Description                                           |
 | ------------ | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| /audio_smart | [audio_msg/msg/SmartAudioData](https://github.com/D-RoboticsRDK/hobot_msgs/blob/develop/audio_msg/msg/SmartAudioData.msg) | Publish data and results processed by smart audio      |
+| /audio_smart | [audio_msg/msg/SmartAudioData](https://github.com/D-Robotics/hobot_msgs/blob/develop/audio_msg/msg/SmartAudioData.msg) | Publish data and results processed by smart audio      |
 | /audio_asr   | std_msgs/msg/String                                                                                                     | Publish ASR recognition results                        |
 
 ## Parameters
@@ -233,14 +239,6 @@ This configuration file configures wake-up words and command words for the speec
     ]
 }
 ```
-
-# Introduction
-
-After the intelligent voice hobot_audio package starts running, it will collect audio from the microphone array and send the collected audio data to the smart speech algorithm SDK module for intelligent processing. It outputs intelligent information such as wake-up events, command words, ASR results, etc. Wake-up events and command words are published as messages of type `audio_msg::msg::SmartAudioData`, and ASR results are published as messages of type `std_msgs::msg::String`.
-
-The specific process is as shown in the following figure:
-
-![hobot_audio](./imgs/hobot_audio.jpg)
 
 # Frequently Asked Questions
 
