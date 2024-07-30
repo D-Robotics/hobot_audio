@@ -2,7 +2,7 @@
 
 # 功能介绍
 
-地平线智能语音算法采用本地离线模式，订阅音频数据后送给BPU处理，然后发布**唤醒、命令词识别**、**声源定位DOA角度信息**以及**语音ASR识别结果**等消息。智能语音功能的实现对应于TogetheROS.Bot的**hobot_audio** package，适用于地平线RDK配套的麦克风阵列。
+智能语音算法采用本地离线模式，订阅音频数据后送给BPU处理，然后发布**唤醒、命令词识别**、**声源定位DOA角度信息**以及**语音ASR识别结果**等消息。智能语音功能的实现对应于TogetheROS.Bot的**hobot_audio** package，适用于RDK配套的麦克风阵列。
 
 应用场景：智能语音算法能够识别音频中的唤醒词以及自定义的命令词，并将语音内容解读为对应指令或转化为文字，可实现语音控制以及语音翻译等功能，主要应用于智能家居、智能座舱、智能穿戴设备等领域。
 
@@ -10,7 +10,7 @@
 
 | 机器人名称   | 生产厂家 | 参考链接                                                        |
 | :----------- | -------- | --------------------------------------------------------------- |
-| RDK X3       | 多厂家   | [点击跳转](https://developer.horizon.cc/rdkx3)                  |
+| RDK X3       | 多厂家   | [点击跳转](https://developer.d-robotics.cc/rdkx3)                  |
 | 4mic麦克风板 | 微雪电子 | [点击跳转](https://www.waveshare.net/shop/Audio-Driver-HAT.htm) |
 | 2mic麦克风板 | 微雪电子 | [点击跳转](https://www.waveshare.net/shop/WM8960-Audio-HAT.htm) |
 
@@ -20,12 +20,12 @@
 
 在体验之前，需要具备以下基本条件：
 
-- 地平线RDK已烧录好地平线提供的Ubuntu 20.04系统镜像
+- RDK已烧录好Ubuntu 20.04系统镜像
 - 音频板正确连接到RDK X3
 
 连接步骤：
 
-1. 将麦克风板连接到地平线RDK X3 40PIN GPIO 接口上，连接后实物如下图：
+1. 将麦克风板连接到RDK X3 40PIN GPIO 接口上，连接后实物如下图：
     - 4mic麦克风板
 
     ![circle_mic_full](./imgs/circle_mic_full.png)
@@ -77,7 +77,7 @@ sudo apt install -y tros-humble-hobot-audio
 
 ![doa_circle](./imgs/doa_circle.jpg)
 
-地平线RDK板端运行hobot_audio package：
+RDK板端运行hobot_audio package：
 
 1. 拷贝配置文件
     
@@ -131,7 +131,7 @@ sudo apt install -y tros-humble-hobot-audio
 
 4. 结果分析
 
-    地平线RDK板端运行终端输出如下信息：
+    RDK板端运行终端输出如下信息：
 
     ```text
     alsa_device_init, snd_pcm_open. handle((nil)), name(hw:0,0), direct(1), mode(0)
@@ -190,7 +190,7 @@ sudo apt install -y tros-humble-hobot-audio
 
 | 名称         | 消息类型                                                                                                               | 说明                               |
 | ------------ | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| /audio_smart | [audio_msg/msg/SmartAudioData](https://github.com/HorizonRDK/hobot_msgs/blob/develop/audio_msg/msg/SmartAudioData.msg) | 发布智能语音处理后的数据和智能结果 |
+| /audio_smart | [audio_msg/msg/SmartAudioData](https://github.com/D-Robotics/hobot_msgs/blob/develop/audio_msg/msg/SmartAudioData.msg) | 发布智能语音处理后的数据和智能结果 |
 | /audio_asr   | std_msgs/msg/String                                                                                                    | 发布ASR识别结果                    |
 
 ## 参数
