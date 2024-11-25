@@ -24,7 +24,7 @@
 #include <string>
 #include <vector>
 
-#include "horizon_speech_sdk/include/horizonspeechsdk/hrsc_sdk.h"
+#include "horizonspeechsdk/hrsc_sdk.h"
 
 namespace hobot {
 namespace audio {
