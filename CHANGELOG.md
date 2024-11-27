@@ -1,5 +1,9 @@
 # Changelog for package hobot_audio
 
+tros_2.3.2 (2024-11-27)
+------------------
+1. 支持X5平台，升级X5的speek SDK v0.02版本.
+
 tros_2.3.1 (2024-5-20)
 ------------------
 1. 更新语音SDK.

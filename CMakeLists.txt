@@ -39,6 +39,45 @@ find_package(geometry_msgs REQUIRED)
 find_package(audio_msg REQUIRED)
 find_package(std_msgs REQUIRED)
 
+set(PREFIX_PATH x3)
+
+if(PLATFORM_X3)
+  message("build platform X3")
+  add_definitions(-DPLATFORM_X3)
+  set(PREFIX_PATH x3)
+elseif(PLATFORM_X5)
+  message("build platform X5")
+  add_definitions(-DPLATFORM_X5)
+  set(PREFIX_PATH x5)
+  set(HRSC_PATH "${PROJECT_SOURCE_DIR}/include/${PREFIX_PATH}/horizon_speech_sdk/")
+  set(HRSC_PAT_2 "${PROJECT_SOURCE_DIR}/include/${PREFIX_PATH}/horizon_speech_sdk/hrsc")
+  set(HRSC_FILE "${HRSC_PATH}/hrsc.tar.gz")
+  if(NOT EXISTS ${HRSC_PAT_2})
+    execute_process(
+      COMMAND wget "https://archive.d-robotics.cc/models/X5_speech/hrsc.tar.gz" -O ${HRSC_FILE}
+      RESULT_VARIABLE WGET_RESULT
+    )
+    if(WGET_RESULT EQUAL 0)
+      execute_process(
+        COMMAND tar xzvf ${HRSC_FILE} -C ${HRSC_PATH}
+        RESULT_VARIABLE WGET_RESULT
+      )
+      execute_process(
+        COMMAND rm -f ${HRSC_FILE}
+        RESULT_VARIABLE WGET_RESULT
+      )
+    else()
+        message(FATAL_ERROR "Failed to download file with wget.")
+    endif()
+  endif()
+else()
+  message("invalid platform, build platform X3 default")
+  add_definitions(-DPLATFORM_X3)
+  set(PREFIX_PATH x3)
+endif()
+
+message("PREFIX_PATH: ${PREFIX_PATH}")
+
 include_directories(include
 ${PROJECT_SOURCE_DIR}
 )
@@ -47,14 +86,16 @@ set(SYS_ROOT ${CMAKE_SYSROOT})
 message("SYS_ROOT is " ${SYS_ROOT})
 include_directories(
   ${SYS_ROOT}/usr/include/
+  ${PROJECT_SOURCE_DIR}/include/${PREFIX_PATH}/horizon_speech_sdk/include
 )
 
 link_directories(
-  ${PROJECT_SOURCE_DIR}/include/horizon_speech_sdk/lib
+  ${PROJECT_SOURCE_DIR}/include/${PREFIX_PATH}/horizon_speech_sdk/lib
   ${SYS_ROOT}/usr/lib/
   ${SYS_ROOT}/usr/lib/hbmedia/
   ${SYS_ROOT}/usr/lib/hbbpu
   ${SYS_ROOT}/usr/lib/hobot/
+  ${SYS_ROOT}/usr/hobot/lib/
   ${SYS_ROOT}/usr/lib/hobot/hobotlog
 )
 
@@ -66,8 +107,16 @@ add_executable(hobot_audio
 )
 
 set(BASE_LIBRARIES pthread dl rt m)
-set(X3_HAPI_LIB  hbmedia cam isp vio multimedia iar)
-set(X3_AUDIO_LIB asound cnn_intf ion hrsc lvcsr modelvad)
+if(PLATFORM_X3)
+  set(X3_HAPI_LIB hbmedia cam isp vio multimedia iar)
+  set(X3_AUDIO_LIB asound cnn_intf ion hrsc lvcsr modelvad)
+elseif(PLATFORM_X5)
+  set(X3_HAPI_LIB alog hbmem)
+  set(X3_AUDIO_LIB asound cnn_intf dnn hrsc lvcsr fst)
+else()
+  set(X3_HAPI_LIB hbmedia cam isp vio multimedia iar)
+  set(X3_AUDIO_LIB asound cnn_intf ion hrsc lvcsr modelvad)
+endif()
 
 target_link_libraries(${PROJECT_NAME}
    ${X3_AUDIO_LIB} ${X3_HAPI_LIB} ${BASE_LIBRARIES}
@@ -85,11 +134,11 @@ target_include_directories(${PROJECT_NAME} PUBLIC
   $<INSTALL_INTERFACE:include>)
 
 # Install libraries
-install(DIRECTORY include/horizon_speech_sdk/lib/
+install(DIRECTORY include/${PREFIX_PATH}/horizon_speech_sdk/lib/
 DESTINATION lib/)
 
 # Install hrsc
-install(DIRECTORY include/horizon_speech_sdk/hrsc
+install(DIRECTORY include/${PREFIX_PATH}/horizon_speech_sdk/hrsc
 DESTINATION lib/hobot_audio/)
 
 # Install libraries

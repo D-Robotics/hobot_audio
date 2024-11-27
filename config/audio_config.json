@@ -9,6 +9,6 @@
   "voip_mode": 0,
   "mic_type": 0,
   "asr_mode": 0,
-  "asr_channel": 3,
+  "asr_channel": 1,
   "save_audio": 0
 }
