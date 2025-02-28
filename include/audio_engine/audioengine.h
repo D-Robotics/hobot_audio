@@ -33,7 +33,15 @@ using AudioDataFunc = std::function<void(char *, int)>;
 using AudioSmartDataFunc = std::function<void(float)>;
 using AudioCmdDataFunc = std::function<void(const char *)>;
 using AudioEventFunc = std::function<void(int)>;
-using AudioASRDataFunc = std::function<void(const char *)>;
+using AudioASRFunc = std::function<void(const char *)>;
+using AudioASRDataFunc = std::function<void(char *, int)>;
+
+typedef enum {
+  kHrscVadStateIdle = 0,     
+  kHrscVadStateBegin,        
+  kHrscVadStateMiddle,        
+  kHrscVadStateEnd             
+} HrscVadState_E;
 
 class AudioEngine {
  public:
@@ -49,7 +57,8 @@ class AudioEngine {
   ~AudioEngine();
   int Init(AudioDataFunc audio_cb, AudioSmartDataFunc audio_smart_cb,
            AudioCmdDataFunc cmd_cb, AudioEventFunc event_cb,
-           AudioASRDataFunc asr_cb,
+           AudioASRFunc asr_cb,
+           AudioASRDataFunc asr_data_cb,
            const int mic_chn, const std::string config_path,
            const int voip_mode, const int mic_type,
            const int asr_output_mode, const int asr_output_channel);
@@ -59,12 +68,21 @@ class AudioEngine {
   int Stop();
   int Reset();
 
+  void update_vad_state(HrscVadState_E state) { vad_state_ = state; }
+
  public:
   AudioDataFunc GetAudioDataCb() { return audio_cb_; }
   AudioSmartDataFunc GetAudioSmartDataCb() { return audio_smart_cb_; }
   AudioCmdDataFunc GetAudioCmdDataCb() { return audio_cmd_cb_; }
   AudioEventFunc GetAudioEventCb() { return audio_event_cb_; }
-  AudioASRDataFunc GetASREventCb() { return audio_asr_cb_; }
+  AudioASRFunc GetASREventCb() { return audio_asr_cb_; }
+  AudioASRDataFunc GetASRDataCb() {
+    if ((vad_state_ == kHrscVadStateBegin) || (vad_state_ == kHrscVadStateMiddle)) {
+      return audio_asr_data_cb_;  
+    } else {
+      return nullptr;
+    }
+  }
 
  private:
   int InitSDK();
@@ -93,7 +111,8 @@ class AudioEngine {
   AudioSmartDataFunc audio_smart_cb_ = nullptr;
   AudioCmdDataFunc audio_cmd_cb_ = nullptr;
   AudioEventFunc audio_event_cb_ = nullptr;
-  AudioASRDataFunc audio_asr_cb_ = nullptr;
+  AudioASRFunc audio_asr_cb_ = nullptr;
+  AudioASRDataFunc audio_asr_data_cb_ = nullptr;
   bool save_file_ = false;
   std::ofstream audio_inconvert_file_;
   std::string sdk_file_path_ = "./config/hrsc";
@@ -107,6 +126,7 @@ class AudioEngine {
 
   char *adapter_buffer_ = nullptr;
   int audio_size_ = 0;
+  HrscVadState_E vad_state_ = kHrscVadStateIdle;
 };
 
 }  // namespace audio

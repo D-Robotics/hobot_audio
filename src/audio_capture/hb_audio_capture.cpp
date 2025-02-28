@@ -39,8 +39,8 @@ HBAudioCapture::HBAudioCapture(const std::string &node_name,
 
   std::string tros_distro
       = std::string(std::getenv("TROS_DISTRO")? std::getenv("TROS_DISTRO") : "");
-  audio_sdk_path_ = "/opt/tros/" + tros_distro + "/lib/hobot_audio";
-  // audio_sdk_path_ = "/tmp/nfs/gitroot/tros/tros_github/tros_humble/cc_ws_x5_2/tros_ws/install/lib/hobot_audio";
+  //audio_sdk_path_ = "/opt/tros/" + tros_distro + "/lib/hobot_audio";
+  audio_sdk_path_ = "/tmp/nfs/gitroot/tros/tros_github/tros_humble/cc_ws_x5_3/tros_ws/install/lib/hobot_audio";
   
   std::stringstream ss;
   ss << "Parameter:"
@@ -95,7 +95,9 @@ int HBAudioCapture::Init() {
                 std::placeholders::_1),
       std::bind(&HBAudioCapture::AudioCmdDataFunc, this, std::placeholders::_1),
       std::bind(&HBAudioCapture::AudioEventFunc, this, std::placeholders::_1),
-      std::bind(&HBAudioCapture::AudioASRDataFunc, this, std::placeholders::_1),
+      std::bind(&HBAudioCapture::AudioASRFunc, this, std::placeholders::_1),
+      std::bind(&HBAudioCapture::AudioASRDataFunc, this, std::placeholders::_1,
+                std::placeholders::_2),
       micphone_chn_, audio_sdk_path_, voip_mode_, mic_type_,
       asr_output_mode_, asr_output_channel_);
 
@@ -249,13 +251,26 @@ void HBAudioCapture::AudioEventFunc(int event) {
   msg_publisher_->publish(std::move(frame));
 }
 
-void HBAudioCapture::AudioASRDataFunc(const char *asr) {
+void HBAudioCapture::AudioASRFunc(const char *asr) {
   RCLCPP_WARN(rclcpp::get_logger("hobot_audio"), "asr result:%s", asr);
   if (asr_output_mode_ == 1 || asr_output_mode_ == 2) {
     auto message = std::make_unique<std_msgs::msg::String>();
     message->data = asr;
     asr_msg_publisher_->publish(std::move(message));
   }
+}
+
+void HBAudioCapture::AudioASRDataFunc(char *buffer, int size) {
+  RCLCPP_DEBUG(rclcpp::get_logger("hobot_audio"), "pub asr audio data, size:%d", size);
+  audio_msg::msg::SmartAudioData::UniquePtr frame(
+      new audio_msg::msg::SmartAudioData());
+  frame->frame_type.value = frame->frame_type.SMART_AUDIO_TYPE_ASR_DATA;
+  frame->data.resize(size);
+  memcpy(&frame->data[0], buffer, size);
+  if (save_audio_ && audio_sdk_.is_open()) {
+   audio_sdk_.write(buffer,size);
+  }
+  msg_publisher_->publish(std::move(frame));
 }
 
 int HBAudioCapture::ParseConfig(std::string config_file) {

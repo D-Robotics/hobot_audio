@@ -55,7 +55,8 @@ class HBAudioCapture : public rclcpp::Node {
   void AudioSmartDataFunc(float theta);
   void AudioCmdDataFunc(const char* cmd_word);
   void AudioEventFunc(int event);
-  void AudioASRDataFunc(const char* asr);
+  void AudioASRFunc(const char* asr);
+  void AudioASRDataFunc(char* buffer, int size);
 
  private:
   int micphone_enable_ = 1;
