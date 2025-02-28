@@ -39,8 +39,8 @@ HBAudioCapture::HBAudioCapture(const std::string &node_name,
 
   std::string tros_distro
       = std::string(std::getenv("TROS_DISTRO")? std::getenv("TROS_DISTRO") : "");
-  //audio_sdk_path_ = "/opt/tros/" + tros_distro + "/lib/hobot_audio";
-  audio_sdk_path_ = "/tmp/nfs/gitroot/tros/tros_github/tros_humble/cc_ws_x5_3/tros_ws/install/lib/hobot_audio";
+  audio_sdk_path_ = "/opt/tros/" + tros_distro + "/lib/hobot_audio";
+  // audio_sdk_path_ = "/tmp/nfs/gitroot/tros/tros_github/tros_humble/cc_ws_x5_3/tros_ws/install/lib/hobot_audio";
   
   std::stringstream ss;
   ss << "Parameter:"
