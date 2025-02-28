@@ -1,4 +1,8 @@
 # Changelog for package hobot_audio
+tros_2.3.3 (2025-2-28)
+------------------
+1. 支持X5平台，升级X5的speek SDK v0.04版本.
+2. 增加X5平台的vad激活后的asr语音数据发布。
 
 tros_2.3.2 (2024-11-27)
 ------------------
