@@ -46,11 +46,33 @@ void WakeupDataCallback(const void *, const HrscCallbackData *data,
             << ", key index:" << keyword_index << std::endl;
 }
 
+void AsrDataCallback(const void *, const HrscCallbackData *data) {
+  if (!data) return;
+  if (AudioEngine::Instance()->GetASRDataCb()) {
+    RCLCPP_DEBUG(rclcpp::get_logger("audio_capture"), "recv hrsc sdk asr data , size is %d", data->audio_buffer.size);
+    AudioEngine::Instance()->GetASRDataCb()(
+        reinterpret_cast<char *>(data->audio_buffer.audio_data),  // nolint
+        data->audio_buffer.size);
+  }
+}
+
 void EventCallback(const void *, HrscEventType event) {
   static int wkp_count = 0;
   if (event == kHrscEventWkpNormal || event == kHrscEventWkpOneshot) {
     std::cout << "recv hrsc sdk event wakeup success, wkp count is "
               << ++wkp_count << std::endl;
+    if (AudioEngine::Instance()->GetAudioEventCb()) {
+      AudioEngine::Instance()->GetAudioEventCb()(event);
+    }
+  } else if (event == kHrscEventVadBegin) {
+    RCLCPP_WARN(rclcpp::get_logger("audio_capture"), "recv hrsc vad begin event");
+    AudioEngine::Instance()->update_vad_state(kHrscVadStateBegin);
+    if (AudioEngine::Instance()->GetAudioEventCb()) {
+      AudioEngine::Instance()->GetAudioEventCb()(event);
+    } 
+  } else if (event == kHrscEventVadEnd) {
+    RCLCPP_WARN(rclcpp::get_logger("audio_capture"), "recv hrsc vad end event");
+    AudioEngine::Instance()->update_vad_state(kHrscVadStateEnd);
     if (AudioEngine::Instance()->GetAudioEventCb()) {
       AudioEngine::Instance()->GetAudioEventCb()(event);
     }
@@ -87,7 +109,8 @@ AudioEngine::~AudioEngine() {
 
 int AudioEngine::Init(AudioDataFunc audio_cb, AudioSmartDataFunc audio_smart_cb,
                       AudioCmdDataFunc cmd_cb, AudioEventFunc event_cb,
-                      AudioASRDataFunc asr_cb,
+                      AudioASRFunc asr_cb,
+                      AudioASRDataFunc asr_data_cb,
                       const int mic_chn, const std::string config_path,
                       const int voip_mode, const int mic_type,
                       const int asr_output_mode, const int asr_output_channel) {
@@ -116,6 +139,7 @@ int AudioEngine::Init(AudioDataFunc audio_cb, AudioSmartDataFunc audio_smart_cb,
   audio_cmd_cb_ = cmd_cb;
   audio_event_cb_ = event_cb;
   audio_asr_cb_ = asr_cb;
+  audio_asr_data_cb_ = asr_data_cb;
   init_ = true;
   RCLCPP_WARN(rclcpp::get_logger("audio_capture"), "init hrsc sdk success!");
   return 0;
@@ -213,6 +237,7 @@ int AudioEngine::InitSDK() {
 
   effect_cfg_.HrscVoipDataCallback = VoipDataCallback;
   effect_cfg_.HrscWakeupDataCallback = WakeupDataCallback;
+  effect_cfg_.HrscAsrDataCallback = AsrDataCallback;
   effect_cfg_.HrscEventCallback = EventCallback;
   effect_cfg_.HrscCmdCallback = CmdDataCallback;
   effect_cfg_.HrscDoaCallbadk = DoaCallback;

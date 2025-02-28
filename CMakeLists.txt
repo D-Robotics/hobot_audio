@@ -51,10 +51,10 @@ elseif(PLATFORM_X5)
   set(PREFIX_PATH x5)
   set(HRSC_PATH "${PROJECT_SOURCE_DIR}/include/${PREFIX_PATH}/horizon_speech_sdk/")
   set(HRSC_PAT_2 "${PROJECT_SOURCE_DIR}/include/${PREFIX_PATH}/horizon_speech_sdk/hrsc")
-  set(HRSC_FILE "${HRSC_PATH}/hrsc.tar.gz")
+  set(HRSC_FILE "${HRSC_PATH}/hrsc_x5_v0.0.3.tar.gz")
   if(NOT EXISTS ${HRSC_PAT_2})
     execute_process(
-      COMMAND wget "https://archive.d-robotics.cc/models/X5_speech/hrsc.tar.gz" -O ${HRSC_FILE}
+      COMMAND wget "https://archive.d-robotics.cc/models/X5_speech/hrsc_x5_v0.0.3.tar.gz" -O ${HRSC_FILE}
       RESULT_VARIABLE WGET_RESULT
     )
     if(WGET_RESULT EQUAL 0)
