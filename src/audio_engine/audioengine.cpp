@@ -24,82 +24,35 @@
 namespace hobot {
 namespace audio {
 
-void VoipDataCallback(const void *, const HrscCallbackData *data) {
-  if (!data) return;
-  RCLCPP_DEBUG(rclcpp::get_logger("audio_capture"),
-               "recv hrsc sdk callback audio, angle:%f, score:%f, data size:%d",
-               data->angle, data->score, data->audio_buffer.size);
-  if (AudioEngine::Instance()->GetAudioDataCb()) {
-    AudioEngine::Instance()->GetAudioDataCb()(
-        reinterpret_cast<char *>(data->audio_buffer.audio_data),  // nolint
-        data->audio_buffer.size);
-  }
-  // if (AudioEngine::Instance()->GetAudioSmartDataCb()) {
-  //   AudioEngine::Instance()->GetAudioSmartDataCb()(data->angle);
-  // }
+void VoipDataCallback(const void *cookie, const HrscCallbackData *data) {
+  AudioEngine::Instance()->VoipDataCallback_(cookie, data);
 }
 
-void WakeupDataCallback(const void *, const HrscCallbackData *data,
+void WakeupDataCallback(const void *cookie, const HrscCallbackData *data,
                         const int keyword_index) {
-  if (!data) return;
-  std::cout << "recv hrsc sdk wakeup data , size is " << data->audio_buffer.size
-            << ", key index:" << keyword_index << std::endl;
+  AudioEngine::Instance()->WakeupDataCallback_(cookie, data, keyword_index);
 }
 
-void AsrDataCallback(const void *, const HrscCallbackData *data) {
-  if (!data) return;
-  if (AudioEngine::Instance()->GetASRDataCb()) {
-    RCLCPP_DEBUG(rclcpp::get_logger("audio_capture"), "recv hrsc sdk asr data , size is %d", data->audio_buffer.size);
-    AudioEngine::Instance()->GetASRDataCb()(
-        reinterpret_cast<char *>(data->audio_buffer.audio_data),  // nolint
-        data->audio_buffer.size);
-  }
+void AsrDataCallback(const void *cookie, const HrscCallbackData *data) {
+  AudioEngine::Instance()->AsrDataCallback_(cookie, data);
 }
 
-void EventCallback(const void *, HrscEventType event) {
-  static int wkp_count = 0;
-  if (event == kHrscEventWkpNormal || event == kHrscEventWkpOneshot) {
-    std::cout << "recv hrsc sdk event wakeup success, wkp count is "
-              << ++wkp_count << std::endl;
-    if (AudioEngine::Instance()->GetAudioEventCb()) {
-      AudioEngine::Instance()->GetAudioEventCb()(event);
-    }
-  } else if (event == kHrscEventVadBegin) {
-    RCLCPP_WARN(rclcpp::get_logger("audio_capture"), "recv hrsc vad begin event");
-    AudioEngine::Instance()->update_vad_state(kHrscVadStateBegin);
-    if (AudioEngine::Instance()->GetAudioEventCb()) {
-      AudioEngine::Instance()->GetAudioEventCb()(event);
-    } 
-  } else if (event == kHrscEventVadEnd) {
-    RCLCPP_WARN(rclcpp::get_logger("audio_capture"), "recv hrsc vad end event");
-    AudioEngine::Instance()->update_vad_state(kHrscVadStateEnd);
-    if (AudioEngine::Instance()->GetAudioEventCb()) {
-      AudioEngine::Instance()->GetAudioEventCb()(event);
-    }
-  }
+void EventCallback(const void *cookie, HrscEventCallbackData event) {
+  AudioEngine::Instance()->EventCallback_(cookie, event);
 }
 
-void CmdDataCallback(const void *, const char *cmd) {
-  if (!cmd) return;
-  std::cout << "recv hrsc sdk command data: " << cmd << std::endl;
-  if (AudioEngine::Instance()->GetAudioCmdDataCb()) {
-    AudioEngine::Instance()->GetAudioCmdDataCb()(cmd);
-  }
+void CmdDataCallback(const void *cookie, const char *cmd) {
+  AudioEngine::Instance()->CmdDataCallback_(cookie, cmd);
 }
 
-void DoaCallback(const void *, int doa) {
-  std::cout << "recv hrsc sdk doa data: " << doa << std::endl;
-  if (AudioEngine::Instance()->GetAudioSmartDataCb()) {
-    AudioEngine::Instance()->GetAudioSmartDataCb()(doa);
-  }
+void DoaCallback(const void *cookie, int doa) {
+  AudioEngine::Instance()->DoaCallback_(cookie, doa);
 }
 
-void AsrCallback(const void *, const char *asr) {
-  std::cout << "asr is: " << asr << std::endl;
-  if (AudioEngine::Instance()->GetASREventCb()) {
-    AudioEngine::Instance()->GetASREventCb()(asr);
-  }
+void AsrCallback(const void *cookie, const char *asr) {
+  AudioEngine::Instance()->AsrCallback_(cookie, asr);
 }
+
 
 AudioEngine::AudioEngine() {}
 
@@ -336,5 +289,145 @@ void AudioEngine::DeInitSDK() {
               "destory audio sdk success!");
 }
 
+void AudioEngine::VoipDataCallback_(const void *cookie, const HrscCallbackData *data) {
+  if (!data) return;
+  RCLCPP_DEBUG(rclcpp::get_logger("audio_capture"),
+               "recv hrsc sdk callback audio, angle:%f, score:%f, data size:%d",
+               data->angle, data->score, data->audio_buffer.size);
+  if (audio_cb_) {
+    audio_cb_(reinterpret_cast<char *>(data->audio_buffer.audio_data),  // nolint
+        data->audio_buffer.size);
+  }
+}
+
+void AudioEngine::WakeupDataCallback_(const void *cookie, const HrscCallbackData *data,
+                        const int keyword_index) {
+  if (!data) return;
+  std::cout << "recv hrsc sdk wakeup data , size is " << data->audio_buffer.size
+            << ", key index:" << keyword_index << std::endl;
+}
+
+void AudioEngine::AsrDataCallback_(const void *cookie, const HrscCallbackData *data) {
+  if (!data) return;
+  static int last_state = 0;
+  if (audio_asr_data_cb_) {
+    if ((vad_state_ == kHrscVadStateBegin) || (vad_state_ == kHrscVadStateMiddle)) {
+      if (last_state != vad_state_) {
+        last_state = vad_state_;
+        RCLCPP_INFO(rclcpp::get_logger("audio_capture"), "recv hrsc sdk asr data , size is %d; timestamp start:%ld,end:%ld",
+                      data->audio_buffer.size,data->audio_buffer.start,data->audio_buffer.end);
+      }
+      if ((asr_mode_ == 0) || (asr_mode_ == 1)) {
+        if (wakeup_event_ptr_ == nullptr) {
+          if (cur_vad_buf_ptr_ == nullptr) {
+            cur_vad_buf_ptr_ = std::make_shared<VadDataBuf_st>();
+            cur_vad_buf_ptr_->start_timestamp = data->audio_buffer.start;
+          }
+          if ((cur_vad_buf_ptr_->pos + data->audio_buffer.size) < AUDIO_VADDATA_BUF_SIZE) {
+            memcpy(&cur_vad_buf_ptr_->data_buf[cur_vad_buf_ptr_->pos], data->audio_buffer.audio_data, data->audio_buffer.size);
+            cur_vad_buf_ptr_->pos += data->audio_buffer.size;
+            cur_vad_buf_ptr_->end_timestamp = data->audio_buffer.start;
+          }
+        } else {
+          while(vad_buf_queue.size() > 0) {
+            auto vad_buf = vad_buf_queue.front();
+            vad_buf_queue.pop();
+            if (vad_buf->end_timestamp > wakeup_event_ptr_->vad_start_timestamp) {
+              audio_asr_data_cb_(vad_buf->data_buf, vad_buf->pos); 
+            }
+          }
+          if (cur_vad_buf_ptr_) {
+            audio_asr_data_cb_(cur_vad_buf_ptr_->data_buf, cur_vad_buf_ptr_->pos);
+            cur_vad_buf_ptr_ = nullptr;
+          }
+          audio_asr_data_cb_(reinterpret_cast<char *>(data->audio_buffer.audio_data), data->audio_buffer.size);
+        }
+      } else {
+        audio_asr_data_cb_(reinterpret_cast<char *>(data->audio_buffer.audio_data), data->audio_buffer.size); 
+      }
+    } else if (vad_state_ == kHrscVadStateEnd) {
+      last_state = vad_state_;
+      if ((asr_mode_ == 0) || (asr_mode_ == 1)) {
+        if (wakeup_event_ptr_) {
+          auto now = std::chrono::system_clock::now();
+          auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+          if ((timestamp - wakeup_event_ptr_->vad_end_timestamp) < 5 * 1000) {
+            while(vad_buf_queue.size() > 0) {
+              auto vad_buf = vad_buf_queue.front();
+              vad_buf_queue.pop();
+              if (vad_buf->end_timestamp > wakeup_event_ptr_->vad_start_timestamp) {
+                audio_asr_data_cb_(vad_buf->data_buf, vad_buf->pos); 
+              }
+            }
+            if (cur_vad_buf_ptr_) {
+              audio_asr_data_cb_(cur_vad_buf_ptr_->data_buf, cur_vad_buf_ptr_->pos);
+              cur_vad_buf_ptr_ = nullptr;
+            }
+          } else {
+            wakeup_event_ptr_ = nullptr;
+            cur_vad_buf_ptr_ = nullptr;
+          }
+        }
+        if (cur_vad_buf_ptr_) {
+          vad_buf_queue.push(cur_vad_buf_ptr_);
+          cur_vad_buf_ptr_ = nullptr;
+          if (vad_buf_queue.size() >3) {
+            vad_buf_queue.pop();
+          } 
+        }
+      }
+    }
+  }
+}
+
+void AudioEngine::EventCallback_(const void *cookie, HrscEventCallbackData event) {
+  static int wkp_count = 0;
+  RCLCPP_INFO(rclcpp::get_logger("audio_engine"), "event:%d, timestamp start:%ld--end:%ld", event.event_type, event.vad_start_timestamp, event.vad_end_timestamp);
+  if (event.event_type == kHrscEventWkpNormal || event.event_type == kHrscEventWkpOneshot) {
+    std::cout << "recv hrsc sdk event wakeup success, wkp count is "
+              << ++wkp_count << std::endl;
+    wakeup_event_ptr_ = std::make_shared<HrscEventCallbackData>();
+    wakeup_event_ptr_->event_type = event.event_type;
+    wakeup_event_ptr_->vad_start_timestamp = event.vad_start_timestamp;
+    wakeup_event_ptr_->vad_end_timestamp = event.vad_end_timestamp;
+    if (audio_event_cb_) {
+      audio_event_cb_(event.event_type);
+    }
+  } else if (event.event_type == kHrscEventVadBegin) {
+    vad_state_ = kHrscVadStateBegin;
+    RCLCPP_INFO(rclcpp::get_logger("audio_engine"), "recv hrsc vad begin event");
+    if (audio_event_cb_) {
+      audio_event_cb_(event.event_type);
+    } 
+  } else if (event.event_type == kHrscEventVadEnd) {
+    vad_state_ = kHrscVadStateEnd;
+    RCLCPP_INFO(rclcpp::get_logger("audio_engine"), "recv hrsc vad end event");
+    if (audio_event_cb_) {
+      audio_event_cb_(event.event_type);
+    }
+  }
+}
+
+void AudioEngine::CmdDataCallback_(const void *cookie, const char *cmd) {
+  if (!cmd) return;
+  std::cout << "recv hrsc sdk command data: " << cmd << std::endl;
+  if (audio_cmd_cb_) {
+    audio_cmd_cb_(cmd);
+  }
+}
+
+void AudioEngine::DoaCallback_(const void *cookie, int doa) {
+  std::cout << "recv hrsc sdk doa data: " << doa << std::endl;
+  if (audio_smart_cb_) {
+    audio_smart_cb_(doa);
+  }
+}
+
+void AudioEngine::AudioEngine::AsrCallback_(const void *cookie, const char *asr) {
+  std::cout << "asr is: " << asr << std::endl;
+  if (audio_asr_cb_) {
+    audio_asr_cb_(asr);
+  }
+}
 }  // namespace audio
 }  // namespace hobot

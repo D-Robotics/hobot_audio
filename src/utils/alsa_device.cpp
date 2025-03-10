@@ -15,6 +15,7 @@
 #include "utils/alsa_device.h"
 
 #include <stdio.h>
+#include <iostream>
 #include <sys/time.h>
 
 #include "utils/utils.h"
@@ -51,6 +52,8 @@
  */
 static snd_output_t *log;
 static int dump_hw_params = 0;
+
+int set_control_value(std::string cardid, const char *control_name, long value);
 
 /*
  * functions
@@ -386,6 +389,21 @@ int alsa_device_init(alsa_device_t *adev) {
 
   if (!adev) return -EINVAL;
 
+#if 0
+  std::string audio_name = adev->name;
+  std::string audio_card = audio_name.substr(0, 4);
+  std::cout << "audio_card::" << audio_card <<std::endl;
+
+  const char *ctrl_names[] = {
+      "ADC1_DIRECT_GAIN", "ADC2_DIRECT_GAIN",
+      "ADC3_DIRECT_GAIN", "ADC4_DIRECT_GAIN"
+  };
+  const int ctrl_valve[] = {200, 190, 180, 170};
+  for (int i = 0; i < 4; i++) {
+    set_control_value(audio_card, ctrl_names[i], ctrl_valve[i]);
+  }
+#endif
+
   printf("%s, snd_pcm_open. handle(%p), name(%s), direct(%d), mode(0)\n",
          __func__, adev->handle, adev->name, adev->direct);
   /* open speaker */
@@ -516,4 +534,31 @@ void alsa_device_free(alsa_device_t *obj) {
   if (obj) free(obj);
 
   trace_out();
+}
+
+int set_control_value(std::string cardid, const char *control_name, long value) {
+    snd_mixer_t *handle;
+    snd_mixer_elem_t *elem;
+    snd_mixer_selem_id_t *sid;
+
+    snd_mixer_open(&handle, 0);
+    snd_mixer_attach(handle, cardid.c_str());
+    snd_mixer_selem_register(handle, NULL, NULL);
+    snd_mixer_load(handle);
+
+    snd_mixer_selem_id_alloca(&sid);
+    snd_mixer_selem_id_set_name(sid, control_name);
+
+    elem = snd_mixer_find_selem(handle, sid);
+    if (!elem) {
+        fprintf(stderr, "Unable to find control '%s'\n", control_name);
+        snd_mixer_close(handle);
+        return -1;
+    }
+
+    snd_mixer_selem_set_playback_volume_all(elem, value);
+
+    snd_mixer_close(handle);
+
+    return 0;
 }

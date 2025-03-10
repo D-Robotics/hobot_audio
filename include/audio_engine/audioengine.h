@@ -23,11 +23,20 @@
 #include <mutex>
 #include <string>
 #include <vector>
+#include <queue>
 
 #include "horizonspeechsdk/hrsc_sdk.h"
 
 namespace hobot {
 namespace audio {
+
+#define  AUDIO_VADDATA_BUF_SIZE 256000
+typedef struct VadDataBuf_s {
+  char data_buf[AUDIO_VADDATA_BUF_SIZE];
+  int pos = 0;
+  uint64_t start_timestamp = 0;
+  uint64_t end_timestamp = 0;
+}VadDataBuf_st;
 
 using AudioDataFunc = std::function<void(char *, int)>;
 using AudioSmartDataFunc = std::function<void(float)>;
@@ -71,18 +80,14 @@ class AudioEngine {
   void update_vad_state(HrscVadState_E state) { vad_state_ = state; }
 
  public:
-  AudioDataFunc GetAudioDataCb() { return audio_cb_; }
-  AudioSmartDataFunc GetAudioSmartDataCb() { return audio_smart_cb_; }
-  AudioCmdDataFunc GetAudioCmdDataCb() { return audio_cmd_cb_; }
-  AudioEventFunc GetAudioEventCb() { return audio_event_cb_; }
-  AudioASRFunc GetASREventCb() { return audio_asr_cb_; }
-  AudioASRDataFunc GetASRDataCb() {
-    if ((vad_state_ == kHrscVadStateBegin) || (vad_state_ == kHrscVadStateMiddle)) {
-      return audio_asr_data_cb_;  
-    } else {
-      return nullptr;
-    }
-  }
+
+  void VoipDataCallback_(const void *cookie, const HrscCallbackData *data);
+  void WakeupDataCallback_(const void *cookie, const HrscCallbackData *data, const int keyword_index);
+  void AsrDataCallback_(const void *cookie, const HrscCallbackData *data);
+  void EventCallback_(const void *cookie, HrscEventCallbackData event);
+  void CmdDataCallback_(const void *cookie, const char *cmd);
+  void DoaCallback_(const void *cookie, int doa);
+  void AsrCallback_(const void *cookie, const char *asr);
 
  private:
   int InitSDK();
@@ -126,7 +131,11 @@ class AudioEngine {
 
   char *adapter_buffer_ = nullptr;
   int audio_size_ = 0;
-  HrscVadState_E vad_state_ = kHrscVadStateIdle;
+  HrscVadState_E vad_state_ = kHrscVadStateEnd;
+
+  std::shared_ptr<VadDataBuf_st> cur_vad_buf_ptr_ = nullptr;
+  std::shared_ptr<HrscEventCallbackData> wakeup_event_ptr_ = nullptr;
+  std::queue<std::shared_ptr<VadDataBuf_st>> vad_buf_queue;
 };
 
 }  // namespace audio

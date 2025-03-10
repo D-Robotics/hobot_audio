@@ -121,6 +121,12 @@ typedef struct {
 } HrscCallbackData;
 
 typedef struct {
+  HrscEventType event_type;
+  HrscTimeStamp vad_start_timestamp;  // the begin of audio data time
+  HrscTimeStamp vad_end_timestamp;    // the end of audio data time
+} HrscEventCallbackData;
+
+typedef struct {
   /**
    * @brief : input auido format
    */
@@ -196,7 +202,7 @@ typedef struct {
    * @param cookie, hrsc_effect_config_t->priv
    * @param event, see hrsc_event_t
    */
-  void (*HrscEventCallback)(const void *cookie, HrscEventType event);
+  void (*HrscEventCallback)(const void *cookie, const HrscEventCallbackData event);
   /**
    * @brief send the wake up data to user
    * @param cookie, HrscEffectConfig->priv
