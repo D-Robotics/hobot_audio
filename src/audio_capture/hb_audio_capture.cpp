@@ -90,14 +90,14 @@ int HBAudioCapture::Init() {
 
   AudioEngine::Instance()->Init(
       std::bind(&HBAudioCapture::AudioDataFunc, this, std::placeholders::_1,
-                std::placeholders::_2),
+                std::placeholders::_2, std::placeholders::_3),
       std::bind(&HBAudioCapture::AudioSmartDataFunc, this,
                 std::placeholders::_1),
       std::bind(&HBAudioCapture::AudioCmdDataFunc, this, std::placeholders::_1),
       std::bind(&HBAudioCapture::AudioEventFunc, this, std::placeholders::_1),
       std::bind(&HBAudioCapture::AudioASRFunc, this, std::placeholders::_1),
       std::bind(&HBAudioCapture::AudioASRDataFunc, this, std::placeholders::_1,
-                std::placeholders::_2),
+                std::placeholders::_2, std::placeholders::_3),
       micphone_chn_, audio_sdk_path_, voip_mode_, mic_type_,
       asr_output_mode_, asr_output_channel_);
 
@@ -112,6 +112,9 @@ int HBAudioCapture::Init() {
 
   msg_publisher_ = this->create_publisher<audio_msg::msg::SmartAudioData>(
       audio_pub_topic_name_, 10);
+  
+  frame_publisher_ = this->create_publisher<audio_msg::msg::AudioFrame>(
+    audio_frame_pub_topic_name_, 10);
   
   if (asr_output_mode_ == 1 || asr_output_mode_ == 2) {
     asr_msg_publisher_ = this->create_publisher<std_msgs::msg::String>(asr_pub_topic_name_, 10);
@@ -180,11 +183,11 @@ int HBAudioCapture::MicphoneGetThread() {
     RCLCPP_DEBUG(rclcpp::get_logger("hobot_audio"), "capture audio size:%d",
                  size);
     audio_num_++;
-    // time_stamp_ =
-    //     std::chrono::duration_cast<std::chrono::microseconds>(
-    //         std::chrono::high_resolution_clock::now().time_since_epoch())
-    //         .count();
-    AudioEngine::Instance()->InputData(buffer, size, false);
+    auto time_stamp_ =
+         std::chrono::duration_cast<std::chrono::microseconds>(
+             std::chrono::high_resolution_clock::now().time_since_epoch())
+             .count();
+    AudioEngine::Instance()->InputData(buffer, size, time_stamp_, false);
     if (save_audio_ && audio_infile_.is_open()) {
       audio_infile_.write(buffer, size);
     }
@@ -194,17 +197,40 @@ int HBAudioCapture::MicphoneGetThread() {
   return 0;
 }
 
-void HBAudioCapture::AudioDataFunc(char *buffer, int size) {
+void HBAudioCapture::AudioDataFunc(uint64_t timestamp, char *buffer, int size) {
   RCLCPP_DEBUG(rclcpp::get_logger("hobot_audio"), "pub audio data, size:%d", size);
-  audio_msg::msg::SmartAudioData::UniquePtr frame(
+  auto systime_stamp =
+         std::chrono::duration_cast<std::chrono::microseconds>(
+             std::chrono::high_resolution_clock::now().time_since_epoch())
+             .count();
+  if (msg_publisher_->get_subscription_count() > 0) {
+    audio_msg::msg::SmartAudioData::UniquePtr smartframe(
       new audio_msg::msg::SmartAudioData());
-  frame->frame_type.value = frame->frame_type.SMART_AUDIO_TYPE_VOIP;
-  frame->data.resize(size);
-  memcpy(&frame->data[0], buffer, size);
-  if (save_audio_ && audio_sdk_.is_open()) {
-   audio_sdk_.write(buffer,size);
+    smartframe->frame_type.value = smartframe->frame_type.SMART_AUDIO_TYPE_VOIP;
+    smartframe->data.resize(size);
+    memcpy(&smartframe->data[0], buffer, size);
+    if (save_audio_ && audio_sdk_.is_open()) {
+    audio_sdk_.write(buffer,size);
+    }
+    msg_publisher_->publish(std::move(smartframe));
   }
-  msg_publisher_->publish(std::move(frame));
+  if (frame_publisher_->get_subscription_count() > 0) {
+    audio_msg::msg::AudioFrame::UniquePtr frame(
+      new audio_msg::msg::AudioFrame());
+    static int frame_index = 0;
+    frame->index = ++frame_index;
+    frame->pts.sec = systime_stamp / 1000000;
+    frame->pts.nanosec = (systime_stamp % 100000) * 1000;
+    frame->frame_type.value = frame->frame_type.FRAME_TYPE_SMART_AUDIO;
+    frame->smart_audio.frame_type.value = frame->smart_audio.frame_type.SMART_AUDIO_TYPE_VOIP;
+    frame->smart_audio.data.resize(size);
+    memcpy(&frame->smart_audio.data[0], buffer, size);
+    if (save_audio_ && audio_sdk_.is_open()) {
+    audio_sdk_.write(buffer,size);
+    }
+    frame_publisher_->publish(std::move(frame));
+  }
+
 }
 
 void HBAudioCapture::AudioSmartDataFunc(float theta) {
@@ -260,17 +286,19 @@ void HBAudioCapture::AudioASRFunc(const char *asr) {
   }
 }
 
-void HBAudioCapture::AudioASRDataFunc(char *buffer, int size) {
+void HBAudioCapture::AudioASRDataFunc(uint64_t timestamp, char *buffer, int size) {
   RCLCPP_DEBUG(rclcpp::get_logger("hobot_audio"), "pub asr audio data, size:%d", size);
-  audio_msg::msg::SmartAudioData::UniquePtr frame(
-      new audio_msg::msg::SmartAudioData());
-  frame->frame_type.value = frame->frame_type.SMART_AUDIO_TYPE_ASR_DATA;
-  frame->data.resize(size);
-  memcpy(&frame->data[0], buffer, size);
-  if (save_audio_ && audio_sdk_.is_open()) {
-   audio_sdk_.write(buffer,size);
+  if (msg_publisher_->get_subscription_count() > 0) {
+    audio_msg::msg::SmartAudioData::UniquePtr frame(
+        new audio_msg::msg::SmartAudioData());
+    frame->frame_type.value = frame->frame_type.SMART_AUDIO_TYPE_ASR_DATA;
+    frame->data.resize(size);
+    memcpy(&frame->data[0], buffer, size);
+    if (save_audio_ && audio_sdk_.is_open()) {
+    audio_sdk_.write(buffer,size);
+    }
+    msg_publisher_->publish(std::move(frame));
   }
-  msg_publisher_->publish(std::move(frame));
 }
 
 int HBAudioCapture::ParseConfig(std::string config_file) {
