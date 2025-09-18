@@ -25,6 +25,7 @@
 
 #include "utils/alsa_device.h"
 #include "audio_msg/msg/smart_audio_data.hpp"
+#include "audio_msg/msg/audio_frame.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
 
@@ -51,12 +52,12 @@ class HBAudioCapture : public rclcpp::Node {
  private:
   int ParseConfig(std::string config_file);
   int MicphoneGetThread();
-  void AudioDataFunc(char* buffer, int size);
+  void AudioDataFunc(uint64_t timestamp, char* buffer, int size);
   void AudioSmartDataFunc(float theta);
   void AudioCmdDataFunc(const char* cmd_word);
   void AudioEventFunc(int event);
   void AudioASRFunc(const char* asr);
-  void AudioASRDataFunc(char* buffer, int size);
+  void AudioASRDataFunc(uint64_t timestamp, char* buffer, int size);
 
  private:
   int micphone_enable_ = 1;
@@ -80,12 +81,14 @@ class HBAudioCapture : public rclcpp::Node {
   // audio_sdk_path_ will be updated at runtime with env "TROS_DISTRO"
   std::string audio_sdk_path_ = "";
   std::string audio_pub_topic_name_ = "/audio_smart";
+  std::string audio_frame_pub_topic_name_ = "/audio_frame";
   std::string asr_pub_topic_name_ = "/audio_asr";
   std::ofstream audio_infile_;
   std::ofstream audio_sdk_;
   bool save_audio_ = false;
 
   rclcpp::Publisher<audio_msg::msg::SmartAudioData>::SharedPtr msg_publisher_;
+  rclcpp::Publisher<audio_msg::msg::AudioFrame>::SharedPtr frame_publisher_;
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr asr_msg_publisher_;
 };
 

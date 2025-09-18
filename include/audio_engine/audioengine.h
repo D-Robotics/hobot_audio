@@ -38,12 +38,12 @@ typedef struct VadDataBuf_s {
   uint64_t end_timestamp = 0;
 }VadDataBuf_st;
 
-using AudioDataFunc = std::function<void(char *, int)>;
+using AudioDataFunc = std::function<void(uint64_t, char *, int)>;
 using AudioSmartDataFunc = std::function<void(float)>;
 using AudioCmdDataFunc = std::function<void(const char *)>;
 using AudioEventFunc = std::function<void(int)>;
 using AudioASRFunc = std::function<void(const char *)>;
-using AudioASRDataFunc = std::function<void(char *, int)>;
+using AudioASRDataFunc = std::function<void(uint64_t, char *, int)>;
 
 typedef enum {
   kHrscVadStateIdle = 0,     
@@ -72,7 +72,7 @@ class AudioEngine {
            const int voip_mode, const int mic_type,
            const int asr_output_mode, const int asr_output_channel);
   int DeInit();
-  int InputData(char *data, int len, bool end);
+  int InputData(char *data, int len, uint64_t timestamp, bool end);
   int Start();
   int Stop();
   int Reset();

@@ -221,7 +221,7 @@ int AudioEngine::InitSDK() {
   return 0;
 }
 
-int AudioEngine::InputData(char *data, int len, bool end) {
+int AudioEngine::InputData(char *data, int len, uint64_t timestamp, bool end) {
   if (!init_ || !start_) {
     RCLCPP_ERROR(rclcpp::get_logger("audio_capture"),
                  "engine not init or start.");
@@ -272,6 +272,7 @@ int AudioEngine::InputData(char *data, int len, bool end) {
 
   HrscAudioBuffer hrsc_buffer;
   hrsc_buffer.audio_data = adapter_buffer_;
+  //hrsc_buffer.start = timestamp;
   hrsc_buffer.size = audio_size_;
   HrscProcess(sdk_handle_, &hrsc_buffer);
   if (save_file_ && audio_inconvert_file_.is_open()) {
@@ -295,7 +296,7 @@ void AudioEngine::VoipDataCallback_(const void *cookie, const HrscCallbackData *
                "recv hrsc sdk callback audio, angle:%f, score:%f, data size:%d",
                data->angle, data->score, data->audio_buffer.size);
   if (audio_cb_) {
-    audio_cb_(reinterpret_cast<char *>(data->audio_buffer.audio_data),  // nolint
+    audio_cb_(data->audio_buffer.start, reinterpret_cast<char *>(data->audio_buffer.audio_data),  // nolint
         data->audio_buffer.size);
   }
 }
@@ -333,17 +334,17 @@ void AudioEngine::AsrDataCallback_(const void *cookie, const HrscCallbackData *d
             auto vad_buf = vad_buf_queue.front();
             vad_buf_queue.pop();
             if (vad_buf->end_timestamp > wakeup_event_ptr_->vad_start_timestamp) {
-              audio_asr_data_cb_(vad_buf->data_buf, vad_buf->pos); 
+              audio_asr_data_cb_(wakeup_event_ptr_->vad_start_timestamp, vad_buf->data_buf, vad_buf->pos); 
             }
           }
           if (cur_vad_buf_ptr_) {
-            audio_asr_data_cb_(cur_vad_buf_ptr_->data_buf, cur_vad_buf_ptr_->pos);
+            audio_asr_data_cb_(cur_vad_buf_ptr_->start_timestamp, cur_vad_buf_ptr_->data_buf, cur_vad_buf_ptr_->pos);
             cur_vad_buf_ptr_ = nullptr;
           }
-          audio_asr_data_cb_(reinterpret_cast<char *>(data->audio_buffer.audio_data), data->audio_buffer.size);
+          audio_asr_data_cb_(data->audio_buffer.start, reinterpret_cast<char *>(data->audio_buffer.audio_data), data->audio_buffer.size);
         }
       } else {
-        audio_asr_data_cb_(reinterpret_cast<char *>(data->audio_buffer.audio_data), data->audio_buffer.size); 
+        audio_asr_data_cb_(data->audio_buffer.start, reinterpret_cast<char *>(data->audio_buffer.audio_data), data->audio_buffer.size); 
       }
     } else if (vad_state_ == kHrscVadStateEnd) {
       last_state = vad_state_;
@@ -356,11 +357,11 @@ void AudioEngine::AsrDataCallback_(const void *cookie, const HrscCallbackData *d
               auto vad_buf = vad_buf_queue.front();
               vad_buf_queue.pop();
               if (vad_buf->end_timestamp > wakeup_event_ptr_->vad_start_timestamp) {
-                audio_asr_data_cb_(vad_buf->data_buf, vad_buf->pos); 
+                audio_asr_data_cb_(wakeup_event_ptr_->vad_start_timestamp, vad_buf->data_buf, vad_buf->pos); 
               }
             }
             if (cur_vad_buf_ptr_) {
-              audio_asr_data_cb_(cur_vad_buf_ptr_->data_buf, cur_vad_buf_ptr_->pos);
+              audio_asr_data_cb_(cur_vad_buf_ptr_->start_timestamp, cur_vad_buf_ptr_->data_buf, cur_vad_buf_ptr_->pos);
               cur_vad_buf_ptr_ = nullptr;
             }
           } else {
